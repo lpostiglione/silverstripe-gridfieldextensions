@@ -720,7 +720,8 @@ class GridFieldOrderableRows extends RequestHandler implements
                 $introspector->getExtraFields() :
                 DataObjectSchema::create()->fieldSpecs($introspector->getJoinClass(), DataObjectSchema::DB_ONLY);
             $key   = $introspector->getLocalKey();
-            $foreignKey = $introspector->getForeignKey();
+	        $foreignKeyMethod = $this->getManyManyInspectorForeignKeyMethod($introspector);
+	        $foreignKey = $introspector->{$foreignKeyMethod}();
             $foreignID  = (int) $list->getForeignID();
 
             if ($extra && array_key_exists($this->getSortField(), $extra)) {
@@ -760,7 +761,23 @@ class GridFieldOrderableRows extends RequestHandler implements
         return $inspector;
     }
 
-    /**
+	/**
+	 * Depending on the list inspector and the list itself (ManyMany vs ManyManyThrough), the method to obtain
+	 * the foreign key may be different.
+	 *
+	 * @param $inspector
+	 * @return string
+	 */
+	protected function getManyManyInspectorForeignKeyMethod($inspector)
+	{
+		if (($inspector instanceof ManyManyThroughQueryManipulator) && (method_exists($inspector, 'getForeignIDKey'))) {
+			return 'getForeignIDKey';
+		}
+
+		return 'getForeignKey';
+	}
+
+	/**
      * Used to get sort orders from a many many through list relationship record, rather than the current
      * record itself.
      *
@@ -773,7 +790,8 @@ class GridFieldOrderableRows extends RequestHandler implements
 
         // Find the foreign key name, ID and class to look up
         $joinClass = $manipulator->getJoinClass();
-        $fromRelationName = $manipulator->getForeignKey();
+	    $foreignKeyMethod = $this->getManyManyInspectorForeignKeyMethod($manipulator);
+	    $fromRelationName = $manipulator->{$foreignKeyMethod}();
         $toRelationName = $manipulator->getLocalKey();
 
         // Create a list of the MMTL relations
